@@ -1,19 +1,28 @@
 {
   "manifest_version": 3,
-  "name": "AI Image Generator",
-  "version": "1.0",
-  "description": "Chrome extension that generates AI images from text prompts.",
+  "name": "Reddit AI Image Generator",
+  "version": "1.5",
+  "description": "Chrome extension that generates AI images from Reddit post content.",
   "permissions": [
     "activeTab",
-    "scripting"  
+    "scripting"
   ],
   "host_permissions": [
-    "https://group7jjis.openai.azure.com/*" 
+    "https://group7jjis.openai.azure.com/*"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
   },
+  "content_scripts": [
+    {
+      "matches": ["*://*.reddit.com/submit?type=TEXT*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://group7jjis.openai.azure.com;"
   }
 }
+  

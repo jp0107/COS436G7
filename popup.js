@@ -3,6 +3,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const textInput = document.getElementById('textInput');
     const imagesContainer = document.getElementById('imagesContainer');
 
+    // Automatically request text from Reddit content (content.js)
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'getRedditText' }, async (response) => {
+            if (chrome.runtime.lastError) {
+                console.error("Error:", chrome.runtime.lastError.message);
+                return;
+            }
+            if (response && response.text) {
+                console.log("Received text from content script:", response.text);
+                textInput.value = response.text; // Set the text in the popup textarea
+
+                // Automatically generate the image based on the extracted text
+                await generateImages(response.text);
+            } else {
+                console.log("No text received from content script.");
+                textInput.placeholder = "Unable to retrieve text. Please type manually.";
+            }
+        });
+    });
+
+    // Button click fallback (if user wants to manually trigger generation)
     generateBtn.addEventListener('click', async () => {
         const text = textInput.value.trim();
         if (!text) {
@@ -10,6 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        await generateImages(text);
+    });
+
+    // Generate images based on the given text
+    async function generateImages(text) {
         // Clear previous images
         imagesContainer.innerHTML = '';
 
@@ -22,28 +48,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const functionUrl = 'https://group7jjis.openai.azure.com/openai/deployments/dall-e-3/images/generations?api-version=2024-02-01';
 
         try {
-            // Create an array of promises for each style
-            const requests = styles.map(style => generateImageWithRetry(functionUrl, apiKey, text, style));
-            const results = await Promise.all(requests);
-
-            // Once all the promises are resolved, display all the images
-            results.forEach(result => {
+            for (const style of styles) {
+                const result = await generateImageWithRetry(functionUrl, apiKey, text, style);
                 if (result && result.imageUrl) {
                     displayGeneratedImage(result.imageUrl, result.style);
+                    await copyToClipboard(result.imageUrl);
+                    alert(`Image for style "${style}" has been copied to your clipboard.`);
+                    addDownloadButton(result.imageUrl, style);
                 } else {
                     displayErrorMessage(result.style, result.error || 'Unknown error');
                 }
-            });
 
+                // Add delay to avoid rate limiting
+                await delay(500);
+            }
         } catch (error) {
             alert('A critical error occurred. Please check console logs for more details.');
             console.error('Critical Error:', error);
         }
 
-        // Enable the button after generating all images
+        // Enable the button after generating images
         generateBtn.disabled = false;
         generateBtn.innerText = 'Generate Image';
-    });
+    }
 
     async function generateImageWithRetry(functionUrl, apiKey, text, style, retries = 3) {
         const styledPrompt = `${text}, in ${style} style`;
@@ -108,6 +135,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Append the container to the images container
         imagesContainer.appendChild(imageWrapper);
+    }
+
+    function addDownloadButton(imageUrl, style) {
+        const downloadBtn = document.createElement('button');
+        downloadBtn.innerText = `Download ${style} Image`;
+        downloadBtn.style.marginTop = '10px';
+        downloadBtn.onclick = () => {
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = `generated_image_${style}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+        imagesContainer.appendChild(downloadBtn);
+    }
+
+    async function copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            console.log("Image URL copied to clipboard:", text);
+        } catch (error) {
+            console.error("Failed to copy image URL to clipboard:", error);
+        }
     }
 
     function displayErrorMessage(style, error) {
