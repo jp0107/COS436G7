@@ -1,14 +1,16 @@
-// Listen for messages from popup.js
+// Listen for messages from background.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getRedditText') {
         console.log("Received request to get Reddit text.");
 
         setTimeout(() => {
             try {
+                // Select the Reddit post editor element
                 const textElement = document.querySelector('div[slot="rte"][contenteditable="true"][role="textbox"]');
                 if (textElement) {
                     console.log("Found the slotted text editor element in light DOM.");
 
+                    // Extract text from all paragraph elements within the editor
                     const paragraphs = textElement.querySelectorAll('p');
                     let extractedText = '';
 
@@ -44,8 +46,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Indicates that we will respond asynchronously
     }
 
-    // Insert the generated image by adding it to the clipboard and asking the user to paste manually
-    if (request.action === 'insertImage') {
+    // Insert the generated image and copy it to the clipboard
+    if (request.action === 'insertImageAndCopy') {
         try {
             if (request.imageUrl) {
                 // Ensure the Reddit editor is focused
@@ -63,7 +65,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                         const clipboardItem = new ClipboardItem({ "image/png": blob });
 
-                        // Attempt to write to the clipboard
+                        // Attempt to write the image blob to the clipboard
                         await navigator.clipboard.write([clipboardItem]);
 
                         alert("The image has been copied to your clipboard. Please click inside the Reddit editor and press Ctrl+V (Cmd+V on Mac) to paste it.");
