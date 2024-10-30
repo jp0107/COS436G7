@@ -1,14 +1,13 @@
+// Listen for messages from popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getRedditText') {
         console.log("Received request to get Reddit text.");
 
-        // Adding a slight delay to allow Reddit's editor to fully load
         setTimeout(() => {
             try {
                 const textElement = document.querySelector('div[slot="rte"][contenteditable="true"][role="textbox"]');
                 if (textElement) {
                     console.log("Found the slotted text editor element in light DOM.");
-                    console.log("HTML structure of the element:", textElement.outerHTML);
 
                     const paragraphs = textElement.querySelectorAll('p');
                     let extractedText = '';
@@ -41,26 +40,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 console.error("An error occurred:", error);
                 sendResponse({ text: '' });
             }
-        }, 1000); // Reduced delay to make the response faster
+        }, 1000);
         return true; // Indicates that we will respond asynchronously
     }
 
+    // Insert the generated image by adding it to the clipboard and asking the user to paste manually
     if (request.action === 'insertImage') {
         try {
-            const textElement = document.querySelector('div[slot="rte"][contenteditable="true"][role="textbox"]');
-            if (textElement && request.imageUrl) {
-                const imgTag = document.createElement('img');
-                imgTag.src = request.imageUrl;
-                imgTag.alt = 'Generated Image';
-                imgTag.style.maxWidth = '100%';
-                imgTag.style.marginTop = '10px';
+            if (request.imageUrl) {
+                // Ensure the Reddit editor is focused
+                const textElement = document.querySelector('div[slot="rte"][contenteditable="true"][role="textbox"]');
+                if (textElement) {
+                    textElement.focus();
+                }
 
-                // Insert the image at the end of the current content
-                textElement.appendChild(imgTag);
-                console.log("Image inserted into the Reddit editor.");
-                sendResponse({ success: true });
+                // Delay before writing to clipboard, giving time for the user to ensure the window is focused
+                setTimeout(async () => {
+                    try {
+                        // Fetch the image and convert it into a Blob
+                        const response = await fetch(request.imageUrl);
+                        const blob = await response.blob();
+
+                        const clipboardItem = new ClipboardItem({ "image/png": blob });
+
+                        // Attempt to write to the clipboard
+                        await navigator.clipboard.write([clipboardItem]);
+
+                        alert("The image has been copied to your clipboard. Please click inside the Reddit editor and press Ctrl+V (Cmd+V on Mac) to paste it.");
+
+                        sendResponse({ success: true });
+                    } catch (clipboardError) {
+                        console.error("Failed to write to clipboard:", clipboardError);
+                        alert("Failed to write image to clipboard. Please try manually copying the image from the browser and pasting it into the Reddit editor.");
+                        sendResponse({ success: false });
+                    }
+                }, 3000); // 3-second delay to ensure the document is focused
             } else {
-                console.log("Unable to find the Reddit text element or image URL missing.");
+                console.log("Image URL is missing.");
                 sendResponse({ success: false });
             }
         } catch (error) {
