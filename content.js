@@ -1,16 +1,18 @@
-// Listen for messages from background.js
+console.log("Content script loaded on Reddit page.");
+
+let imageUrlToCopy = null;
+
+// Listen for messages from popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getRedditText') {
         console.log("Received request to get Reddit text.");
 
         setTimeout(() => {
             try {
-                // Select the Reddit post editor element
                 const textElement = document.querySelector('div[slot="rte"][contenteditable="true"][role="textbox"]');
                 if (textElement) {
                     console.log("Found the slotted text editor element in light DOM.");
 
-                    // Extract text from all paragraph elements within the editor
                     const paragraphs = textElement.querySelectorAll('p');
                     let extractedText = '';
 
@@ -46,45 +48,45 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Indicates that we will respond asynchronously
     }
 
-    // Insert the generated image and copy it to the clipboard
-    if (request.action === 'insertImageAndCopy') {
+    // Prepare to copy the image when the user refocuses on the page
+    if (request.action === 'prepareCopy' && request.imageUrl) {
+        imageUrlToCopy = request.imageUrl;
+        console.log("Image URL received, waiting for page focus to copy.");
+
+        // Send a success response to popup.js
+        sendResponse({ success: true });
+    }
+
+    return true; // Keeps the response channel open for async response
+});
+
+// Listen for the page to regain focus, then attempt to copy the image to clipboard
+window.addEventListener('focus', async () => {
+    if (imageUrlToCopy) {
+        console.log("Page refocused, attempting to copy image to clipboard.");
+
         try {
-            if (request.imageUrl) {
-                // Ensure the Reddit editor is focused
-                const textElement = document.querySelector('div[slot="rte"][contenteditable="true"][role="textbox"]');
-                if (textElement) {
-                    textElement.focus();
-                }
-
-                // Delay before writing to clipboard, giving time for the user to ensure the window is focused
-                setTimeout(async () => {
-                    try {
-                        // Fetch the image and convert it into a Blob
-                        const response = await fetch(request.imageUrl);
-                        const blob = await response.blob();
-
-                        const clipboardItem = new ClipboardItem({ "image/png": blob });
-
-                        // Attempt to write the image blob to the clipboard
-                        await navigator.clipboard.write([clipboardItem]);
-
-                        alert("The image has been copied to your clipboard. Please click inside the Reddit editor and press Ctrl+V (Cmd+V on Mac) to paste it.");
-
-                        sendResponse({ success: true });
-                    } catch (clipboardError) {
-                        console.error("Failed to write to clipboard:", clipboardError);
-                        alert("Failed to write image to clipboard. Please try manually copying the image from the browser and pasting it into the Reddit editor.");
-                        sendResponse({ success: false });
-                    }
-                }, 3000); // 3-second delay to ensure the document is focused
-            } else {
-                console.log("Image URL is missing.");
-                sendResponse({ success: false });
+            // Check if the document is focused before attempting to copy
+            if (!document.hasFocus()) {
+                console.log("Document is not focused. Waiting for user to click in the editor.");
+                alert("Please click in the Reddit editor text box to focus before copying.");
+                return;
             }
-        } catch (error) {
-            console.error("An error occurred while inserting the image:", error);
-            sendResponse({ success: false });
+
+            // Fetch the image and copy it to the clipboard
+            const response = await fetch(imageUrlToCopy);
+            const blob = await response.blob();
+            const clipboardItem = new ClipboardItem({ "image/png": blob });
+
+            await navigator.clipboard.write([clipboardItem]);
+            console.log("Image copied to clipboard.");
+            alert("The image has been copied to your clipboard. Press Ctrl+V (Cmd+V on Mac) to paste it into the Reddit editor.");
+
+            // Clear the image URL to prevent repeated copying
+            imageUrlToCopy = null;
+        } catch (clipboardError) {
+            console.error("Failed to write to clipboard:", clipboardError);
+            alert("Failed to copy image. Please try again.");
         }
-        return true; // Indicates that we will respond asynchronously
     }
 });

@@ -13,14 +13,15 @@
     "https://*.reddit.com/*"
   ],
   "action": {
+    "default_popup": "popup.html",
     "default_icon": "icon.png"
-  },
-  "background": {
-    "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.reddit.com/submit*", "*://www.reddit.com/submit?type=TEXT*"],
+      "matches": [
+        "https://www.reddit.com/submit?type=TEXT",
+        "https://www.reddit.com/r/*/submit?type=TEXT"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
