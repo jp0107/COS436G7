@@ -1,25 +1,47 @@
 document.addEventListener('DOMContentLoaded', () => {
     const generateBtn = document.getElementById('generateBtn');
+    const clearBtn = document.getElementById('clearBtn');
     const textInput = document.getElementById('textInput');
     const imagesContainer = document.getElementById('imagesContainer');
 
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        setTimeout(() => {
-            chrome.tabs.sendMessage(tabs[0].id, { action: 'getRedditText' }, async (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error("Error:", chrome.runtime.lastError.message);
-                    return;
-                }
-                if (response && response.text) {
-                    console.log("Received text from content script:", response.text);
-                    textInput.value = response.text;
-                    await generateImage(response.text);
-                } else {
-                    console.log("No text received from content script.");
-                    textInput.placeholder = "Unable to retrieve text. Please type manually.";
-                }
+    // Check if there's stored text or image
+    chrome.storage.local.get(['savedText', 'savedImageUrl'], (result) => {
+        if (result.savedText || result.savedImageUrl) {
+            // If storage data exists, load it
+            if (result.savedText) {
+                textInput.value = result.savedText;
+            }
+            if (result.savedImageUrl) {
+                displayGeneratedImage(result.savedImageUrl);
+            }
+        } else {
+            // If no storage data, proceed with auto-retrieval and generation
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                setTimeout(() => {
+                    chrome.tabs.sendMessage(tabs[0].id, { action: 'getRedditText' }, async (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.error("Error:", chrome.runtime.lastError.message);
+                            return;
+                        }
+                        if (response && response.text) {
+                            console.log("Received text from content script:", response.text);
+                            textInput.value = response.text;
+                            // Save the auto-retrieved text to storage
+                            chrome.storage.local.set({ savedText: response.text });
+                            await generateImage(response.text);
+                        } else {
+                            console.log("No text received from content script.");
+                            textInput.placeholder = "Unable to retrieve text. Please type manually.";
+                        }
+                    });
+                }, 1000);
             });
-        }, 1000);
+        }
+    });
+
+    // Save text whenever it changes
+    textInput.addEventListener('input', () => {
+        chrome.storage.local.set({ savedText: textInput.value });
     });
 
     generateBtn.addEventListener('click', async () => {
@@ -29,6 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         await generateImage(text);
+    });
+
+    // Clear storage and reset UI when clear button is clicked
+    clearBtn.addEventListener('click', () => {
+        chrome.storage.local.clear(() => {
+            console.log("chrome.storage.local cleared by user.");
+            textInput.value = '';
+            imagesContainer.innerHTML = ''; // Clear any displayed images
+        });
     });
 
     async function generateImage(text) {
@@ -63,7 +94,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Generated Image URL:", imageUrl);
                 displayGeneratedImage(imageUrl);
 
-                // Send image URL to content script for copying and prompt the user
+                // Save image URL in storage
+                chrome.storage.local.set({ savedImageUrl: imageUrl });
+
+                // Send image URL to content script for copying
                 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                     chrome.tabs.sendMessage(tabs[0].id, { action: 'prepareCopy', imageUrl: imageUrl }, (response) => {
                         if (chrome.runtime.lastError) {

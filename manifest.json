@@ -6,8 +6,12 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "clipboardWrite"
+    "clipboardWrite",
+    "storage"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "host_permissions": [
     "https://group7jjis.openai.azure.com/*",
     "https://*.reddit.com/*"
