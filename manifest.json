@@ -7,30 +7,42 @@
     "activeTab",
     "scripting",
     "clipboardWrite",
-    "storage"
+    "storage",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "565264224205-2rv0t6tsh4tak11gh6mdv0h3qv2n8gav.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/userinfo.profile"]
+  },
   "background": {
     "service_worker": "background.js"
   },
   "host_permissions": [
     "https://group7jjis.openai.azure.com/*",
-    "https://*.reddit.com/*"
+    "https://*.reddit.com/*",
+    "https://www.googleapis.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icon.png"
+    "default_icon": "logo_transparent.png"
+  },
+  "icons": {
+    "16": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
   },
   "content_scripts": [
     {
       "matches": [
         "https://www.reddit.com/submit?type=TEXT",
-        "https://www.reddit.com/r/*/submit?type=TEXT"
+        "https://www.reddit.com/r/*/submit?type=TEXT",
+        "https://www.reddit.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://group7jjis.openai.azure.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://group7jjis.openai.azure.com https://www.googleapis.com https://accounts.google.com;"
   }
 }

@@ -7,13 +7,25 @@
     <title>AI Image Generator</title>
 </head>
 <body>
-    <div id="main">
+    <div id="login" style="display: none;">
+        <h2>Welcome to AI Image Generator</h2>
+        <button id="loginBtn">Sign in with Google</button>
+    </div>
+
+    <div id="main" style="display: none;">
+        <div id="profile">
+            <img id="profilePic" alt="Profile Picture" style="width: 40px; height: 40px; border-radius: 50%;">
+            <span id="profileName"></span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+        
         <h2>Generate AI Image</h2>
         <textarea id="textInput" rows="3" placeholder="Enter text..."></textarea>
         <button id="generateBtn">Generate</button>
         <button id="clearBtn">Clear</button>
         <div id="imagesContainer"></div>
     </div>
+
     <script src="popup.js"></script>
 </body>
 </html>
