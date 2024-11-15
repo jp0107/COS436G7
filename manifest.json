@@ -12,10 +12,11 @@
   ],
   "oauth2": {
     "client_id": "565264224205-2rv0t6tsh4tak11gh6mdv0h3qv2n8gav.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/userinfo.profile"]
-  },
-  "background": {
-    "service_worker": "background.js"
+    "scopes": [
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "openid"
+    ]
   },
   "host_permissions": [
     "https://group7jjis.openai.azure.com/*",

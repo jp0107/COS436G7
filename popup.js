@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginDiv = document.getElementById('login');
     const profilePic = document.getElementById('profilePic');
     const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
 
     // Helper function to update the UI based on auth state
     function updateUIBasedOnAuth(isAuthenticated, userInfo = null) {
@@ -13,6 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
             mainDiv.style.display = 'block';
             profileName.textContent = userInfo.name;
             profilePic.src = userInfo.picture;
+            if (userInfo.email) {
+                profileEmail.textContent = userInfo.email; // Set email
+            } else {
+                console.error("No email found in user info:", JSON.stringify(userInfo, null, 2));
+            }
         } else {
             mainDiv.style.display = 'none';
             loginDiv.style.display = 'block';
@@ -26,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.identity.getAuthToken({ interactive: false }, (token) => {
                 if (token) {
                     // Token exists, user is authenticated; fetch user info
-                    fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+                    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                         headers: { 'Authorization': 'Bearer ' + token }
                     })
                         .then(response => response.json())
@@ -98,82 +104,107 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const generateTab = document.getElementById('generateTab');
+    const historyTab = document.getElementById('historyTab');
+    const generateSection = document.getElementById('generateSection');
+    const historySection = document.getElementById('historySection');
+
+    // Tab switching logic
+    generateTab.addEventListener('click', () => {
+        switchTab(generateTab, historyTab, generateSection, historySection);
+    });
+
+    historyTab.addEventListener('click', () => {
+        switchTab(historyTab, generateTab, historySection, generateSection);
+        updateHistory(); // Automatically update history when switching to the History tab
+    });
+
+    function switchTab(activeTab, inactiveTab, showSection, hideSection) {
+        activeTab.classList.add('selected');
+        inactiveTab.classList.remove('selected');
+        showSection.classList.add('active');
+        hideSection.classList.remove('active');
+    }
+
+    // Helper function to update history
+    function updateHistory() {
+        chrome.storage.local.get(['imageHistory'], (data) => {
+            historyContainer.innerHTML = ''; // Clear previous history
+            const history = data.imageHistory || [];
+    
+            if (history.length > 0) {
+                const previousImages = history.slice(0, 10);
+                previousImages.forEach(({ inputText, imageUrl }, index) => {
+                    const entryContainer = document.createElement('div');
+                    entryContainer.classList.add('history-entry'); // Assign class for styling
+    
+                    const titleElement = document.createElement('p');
+                    titleElement.textContent = `Image ${index + 1}`;
+                    titleElement.classList.add('history-title');
+    
+                    const textElement = document.createElement('p');
+                    textElement.textContent = inputText;
+                    textElement.classList.add('history-text');
+    
+                    const imageElement = document.createElement('img');
+                    imageElement.src = imageUrl;
+                    imageElement.alt = `Generated image ${index + 1}`;
+                    imageElement.classList.add('history-image');
+    
+                    entryContainer.appendChild(titleElement);
+                    entryContainer.appendChild(textElement);
+                    entryContainer.appendChild(imageElement);
+                    historyContainer.appendChild(entryContainer);
+                });
+            } else {
+                historyContainer.textContent = 'No history available.';
+            }
+        });
+    }
+    
+
     const generateBtn = document.getElementById('generateBtn');
-    const clearBtn = document.getElementById('clearBtn');
     const textInput = document.getElementById('textInput');
     const imagesContainer = document.getElementById('imagesContainer');
 
-    function isAuthenticated() {
-        return new Promise((resolve) => {
-            chrome.storage.local.get(['isAuthenticated'], (result) => resolve(result.isAuthenticated));
-        });
-    }
-
-    isAuthenticated().then((authStatus) => {
-        if (authStatus) {
-            // Check if there's stored text or image
-            chrome.storage.local.get(['savedText', 'savedImageUrl'], (result) => {
-                if (result.savedText || result.savedImageUrl) {
-                    // If storage data exists, load it
-                    if (result.savedText) {
-                        textInput.value = result.savedText;
-                    }
-                    if (result.savedImageUrl) {
-                        displayGeneratedImage(result.savedImageUrl);
-                    }
-                } else {
-                    // If no storage data, proceed with auto-retrieval and generation
-                    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                        const currentTab = tabs[0];
-                        if (currentTab && currentTab.url.includes('reddit.com')) { // Only proceed if URL matches Reddit
-                            setTimeout(() => {
-                                chrome.tabs.sendMessage(currentTab.id, { action: 'getRedditText' }, async (response) => {
-                                    if (chrome.runtime.lastError) {
-                                        console.error("Error:", chrome.runtime.lastError.message);
-                                        return;
-                                    }
-                                    if (response && response.text) {
-                                        console.log("Received text from content script:", response.text);
-                                        textInput.value = response.text;
-                                        chrome.storage.local.set({ savedText: response.text });
-                                        await generateImage(response.text);
-                                    } else {
-                                        textInput.placeholder = "Unable to retrieve text. Please type manually.";
-                                    }
-                                });
-                            }, 1000);
-                        } else {
-                            console.warn("Content script not available on this tab");
-                        }
-                    });
-                }
-            });
-
-            // Save input text changes
-            textInput.addEventListener('input', () => {
-                chrome.storage.local.set({ savedText: textInput.value });
-            });
-
-            // Generate image on button click
-            generateBtn.addEventListener('click', async () => {
-                const text = textInput.value.trim();
-                if (!text) {
-                    alert('Please enter some text to generate an image.');
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        setTimeout(() => {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'getRedditText' }, async (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error:", chrome.runtime.lastError.message);
                     return;
                 }
-                await generateImage(text);
+                if (response && response.text) {
+                    console.log("Received text from content script:", response.text);
+                    textInput.value = response.text;
+                    await generateImage(response.text);
+                } else {
+                    console.log("No text received from content script.");
+                    textInput.placeholder = "Unable to retrieve text. Please type manually.";
+                }
             });
-
-            // Clear storage and reset UI when clear button is clicked
-            clearBtn.addEventListener('click', () => {
-                chrome.storage.local.clear(() => {
-                    console.log("chrome.storage.local cleared by user.");
-                    textInput.value = '';
-                    imagesContainer.innerHTML = ''; // Clear any displayed images
-                });
-            });
-        }
+        }, 1000);
     });
+
+    generateBtn.addEventListener('click', async () => {
+        const text = textInput.value.trim();
+        if (!text) {
+            alert('Please enter some text to generate an image.');
+            return;
+        }
+        await generateImage(text);
+    });
+
+    function animateGeneratingText(button) {
+        let dots = 0;
+        button.innerText = 'Generating';
+        const interval = setInterval(() => {
+            dots = (dots + 1) % 4; // Cycle through 0, 1, 2, 3
+            button.innerText = 'Generating' + '.'.repeat(dots);
+        }, 500); // Adjust timing if needed
+    
+        return interval;
+    }    
 
     async function generateImage(text) {
         imagesContainer.innerHTML = '';
@@ -182,6 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const apiKey = '9DjmPPktBczJiVsX4YbCy0SPwtFdGz5lt0dD3x7Huvpw2hqk6Al0JQQJ99AJACYeBjFXJ3w3AAABACOG72mv';
         const functionUrl = 'https://group7jjis.openai.azure.com/openai/deployments/dall-e-3/images/generations?api-version=2024-02-01';
+
+        let generatingInterval = animateGeneratingText(generateBtn); // Start animation
 
         try {
             const response = await fetch(functionUrl, {
@@ -207,10 +240,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Generated Image URL:", imageUrl);
                 displayGeneratedImage(imageUrl);
 
-                // Save image URL in storage
-                chrome.storage.local.set({ savedImageUrl: imageUrl });
+                // Save text and image URL in history
+                chrome.storage.local.get(['imageHistory'], (data) => {
+                    const history = data.imageHistory || [];
+                    history.unshift({ inputText: text, imageUrl: imageUrl });
+                    if (history.length > 10) history.pop();
+                    chrome.storage.local.set({ imageHistory: history });
+                    updateHistory();
+                });
 
-                // Send image URL to content script for copying
+                // Send image URL to content script for copying and prompt the user
                 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                     chrome.tabs.sendMessage(tabs[0].id, { action: 'prepareCopy', imageUrl: imageUrl }, (response) => {
                         if (chrome.runtime.lastError) {
@@ -231,7 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Failed to reach the backend server. Please make sure it is running.');
             console.error('Error:', error);
         }
-
+        
+        clearInterval(generatingInterval);
         generateBtn.disabled = false;
         generateBtn.innerText = 'Generate Image';
     }
@@ -243,4 +283,5 @@ document.addEventListener('DOMContentLoaded', () => {
         img.style.margin = '10px';
         imagesContainer.appendChild(img);
     }
+
 });

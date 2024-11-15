@@ -7,23 +7,36 @@
     <title>AI Image Generator</title>
 </head>
 <body>
-    <div id="login" style="display: none;">
+    <div id="login" class="login-section">
         <h2>Welcome to AI Image Generator</h2>
-        <button id="loginBtn">Sign in with Google</button>
+        <button id="loginBtn" class="primary-button">Sign in with Google</button>
     </div>
 
-    <div id="main" style="display: none;">
-        <div id="profile">
-            <img id="profilePic" alt="Profile Picture" style="width: 40px; height: 40px; border-radius: 50%;">
-            <span id="profileName"></span>
-            <button id="logoutBtn">Logout</button>
+    <div id="main" class="main-section">
+        <header class="profile-header">
+            <img id="profilePic" alt="Profile Picture" class="profile-picture">
+            <div class="profile-info">
+                <span id="profileName" class="profile-name"></span>
+                <span id="profileEmail" class="profile-email"></span>
+            </div>
+            <button id="logoutBtn" class="logout-button">Logout</button>
+        </header>        
+
+        <div class="tabs">
+            <button id="generateTab" class="tab-button selected">Generate</button>
+            <button id="historyTab" class="tab-button">History</button>
         </div>
-        
-        <h2>Generate AI Image</h2>
-        <textarea id="textInput" rows="3" placeholder="Enter text..."></textarea>
-        <button id="generateBtn">Generate</button>
-        <button id="clearBtn">Clear</button>
-        <div id="imagesContainer"></div>
+
+        <section id="generateSection" class="content-section active">
+            <textarea id="textInput" rows="3" placeholder="Enter text..." class="text-input"></textarea>
+            <button id="generateBtn" class="primary-button">Generate AI Image</button>
+            <div id="imagesContainer" class="images-container"></div>
+        </section>
+
+        <section id="historySection" class="content-section">
+            View the last 10 AI-generated images:
+            <div id="historyContainer" class="history-container"></div>
+        </section>
     </div>
 
     <script src="popup.js"></script>
