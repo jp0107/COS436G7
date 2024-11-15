@@ -133,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const history = data.imageHistory || [];
     
             if (history.length > 0) {
+                historyContainer.textContent = 'View the last 10 AI-generated images:';
                 const previousImages = history.slice(0, 10);
                 previousImages.forEach(({ inputText, imageUrl }, index) => {
                     const entryContainer = document.createElement('div');
