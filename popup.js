@@ -58,22 +58,48 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIBasedOnAuth(isAuthenticated, userInfo);
     });
 
+    async function callUpdateUserAPI(email) {
+        const apiEndpoint = 'https://ai-image-generator-backend-b3cqecdvadesc9gy.eastus-01.azurewebsites.net/updateUser';
+        try {
+            const response = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to update user: ${response.statusText}`);
+            }
+            console.log('User added/updated in database:', email);
+        } catch (error) {
+            console.error('Error calling /updateUser API:', error);
+        }
+    }
+
     // Login with Google
-    loginBtn.addEventListener('click', () => {
-        chrome.identity.getAuthToken({ interactive: true }, (token) => {
+    loginBtn.addEventListener('click', async () => {
+        chrome.identity.getAuthToken({ interactive: true }, async (token) => {
             if (chrome.runtime.lastError || !token) {
                 console.error("Authentication failed:", chrome.runtime.lastError);
                 return;
             }
+            try {
+                // Fetch user info
+                const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const userInfo = await userInfoResponse.json();
 
-            fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(response => response.json())
-                .then(userInfo => {
-                    chrome.storage.local.set({ isAuthenticated: true, userInfo: userInfo }, () => {
-                        updateUIBasedOnAuth(true, userInfo);
-                    });
-                }).catch(error => console.error('Error fetching user info:', error));
+                // Store authentication state and user info
+                chrome.storage.local.set({ isAuthenticated: true, userInfo: userInfo }, async () => {
+                    updateUIBasedOnAuth(true, userInfo);
+
+                    // Call the updateUser API helper function
+                    await callUpdateUserAPI(userInfo.email);
+                });
+            } catch (error) {
+                console.error('Error fetching user info:', error);
+            }
         });
     });
 
@@ -131,27 +157,27 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.local.get(['imageHistory'], (data) => {
             historyContainer.innerHTML = ''; // Clear previous history
             const history = data.imageHistory || [];
-    
+
             if (history.length > 0) {
                 historyContainer.textContent = 'View the last 10 AI-generated images:';
                 const previousImages = history.slice(0, 10);
                 previousImages.forEach(({ inputText, imageUrl }, index) => {
                     const entryContainer = document.createElement('div');
                     entryContainer.classList.add('history-entry'); // Assign class for styling
-    
+
                     const titleElement = document.createElement('p');
                     titleElement.textContent = `Image ${index + 1}`;
                     titleElement.classList.add('history-title');
-    
+
                     const textElement = document.createElement('p');
                     textElement.textContent = inputText;
                     textElement.classList.add('history-text');
-    
+
                     const imageElement = document.createElement('img');
                     imageElement.src = imageUrl;
                     imageElement.alt = `Generated image ${index + 1}`;
                     imageElement.classList.add('history-image');
-    
+
                     entryContainer.appendChild(titleElement);
                     entryContainer.appendChild(textElement);
                     entryContainer.appendChild(imageElement);
@@ -162,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
 
     const generateBtn = document.getElementById('generateBtn');
     const textInput = document.getElementById('textInput');
@@ -203,9 +229,26 @@ document.addEventListener('DOMContentLoaded', () => {
             dots = (dots + 1) % 4; // Cycle through 0, 1, 2, 3
             button.innerText = 'Generating' + '.'.repeat(dots);
         }, 500); // Adjust timing if needed
-    
         return interval;
-    }    
+    }
+
+    async function callUpdateUserMetricsAPI(email) {
+        const apiEndpoint = 'https://ai-image-generator-backend-b3cqecdvadesc9gy.eastus-01.azurewebsites.net/updateUserMetrics';
+        try {
+            const response = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to update user metrics: ${response.statusText}`);
+            }
+            console.log('User metrics updated for:', email);
+        } catch (error) {
+            console.error('Error calling /updateUserMetrics API:', error);
+        }
+    }
 
     async function generateImage(text) {
         imagesContainer.innerHTML = '';
@@ -250,6 +293,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateHistory();
                 });
 
+                // Call the updateUserMetrics API helper function for metrics
+                chrome.storage.local.get('userInfo', async ({ userInfo }) => {
+                    if (userInfo && userInfo.email) {
+                        await callUpdateUserMetricsAPI(userInfo.email);
+                    }
+                });
+
                 // Send image URL to content script for copying and prompt the user
                 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                     chrome.tabs.sendMessage(tabs[0].id, { action: 'prepareCopy', imageUrl: imageUrl }, (response) => {
@@ -271,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Failed to reach the backend server. Please make sure it is running.');
             console.error('Error:', error);
         }
-        
+
         clearInterval(generatingInterval);
         generateBtn.disabled = false;
         generateBtn.innerText = 'Generate Image';

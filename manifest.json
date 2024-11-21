@@ -21,7 +21,8 @@
   "host_permissions": [
     "https://group7jjis.openai.azure.com/*",
     "https://*.reddit.com/*",
-    "https://www.googleapis.com/*"
+    "https://www.googleapis.com/*",
+    "https://ai-image-generator-backend-b3cqecdvadesc9gy.eastus-01.azurewebsites.net/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -44,6 +45,6 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://group7jjis.openai.azure.com https://www.googleapis.com https://accounts.google.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://www.googleapis.com https://accounts.google.com https://group7jjis.openai.azure.com https://ai-image-generator-backend-b3cqecdvadesc9gy.eastus-01.azurewebsites.net;"
   }
 }
